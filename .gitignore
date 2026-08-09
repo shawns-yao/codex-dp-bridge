@@ -1,0 +1,8 @@
+node_modules/
+dist/
+Temp/
+Log/
+Config/config.json
+Config/backups/
+*.log
+.codegraph/

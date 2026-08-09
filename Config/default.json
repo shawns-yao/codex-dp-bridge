@@ -1,0 +1,14 @@
+{
+  "piCommand": "pi",
+  "compatiblePiRange": ">=0.84.1 <0.85.0",
+  "provider": "opencode-go",
+  "defaultModel": "",
+  "defaultMode": "patch",
+  "analysisTimeoutMs": 600000,
+  "implementationTimeoutMs": 1800000,
+  "revisionTimeoutMs": 900000,
+  "totalTimeoutMs": 3600000,
+  "maxRevisionRounds": 2,
+  "detailedLogging": false,
+  "sensitivePatterns": [".env", ".env.*", "*.pem", "*.key", "*.pfx", "*.p12", "*credential*", "*secret*", "*token*", "auth.json"]
+}
