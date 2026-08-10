@@ -1,11 +1,14 @@
 export type ImplementationMode = "patch" | "direct";
 export type TaskPhase = "review" | "dispute" | "implementing" | "revising" | "completed" | "failed";
+export const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
+export type ThinkingLevel = typeof THINKING_LEVELS[number];
 
 export interface AppConfig {
   piCommand: string;
   compatiblePiRange: string;
   provider: string;
   defaultModel: string;
+  defaultThinkingLevel: ThinkingLevel;
   defaultMode: ImplementationMode;
   analysisTimeoutMs: number;
   implementationTimeoutMs: number;
@@ -22,6 +25,7 @@ export interface ReviewInput {
   codexProposal: string;
   collaborationAuthorized: boolean;
   requestedModel?: string | undefined;
+  requestedThinkingLevel?: ThinkingLevel | undefined;
 }
 
 export interface ImplementationInput {
@@ -40,6 +44,7 @@ export interface TaskRecord {
   phase: TaskPhase;
   createdAt: number;
   model: string;
+  thinkingLevel: ThinkingLevel;
   revisionRounds: number;
   allowedPaths: string[];
   isolationPath?: string;

@@ -3,13 +3,14 @@ import { z } from "zod";
 import { defaultConfigPath, userConfigPath } from "./paths.js";
 import { configDirectory } from "./paths.js";
 import { atomicWriteFile } from "./atomic-write.js";
-import type { AppConfig } from "./types.js";
+import { THINKING_LEVELS, type AppConfig } from "./types.js";
 
 const schema = z.object({
   piCommand: z.string().min(1),
   compatiblePiRange: z.string().min(1),
   provider: z.string().min(1),
   defaultModel: z.string(),
+  defaultThinkingLevel: z.enum(THINKING_LEVELS),
   defaultMode: z.enum(["patch", "direct"]),
   analysisTimeoutMs: z.number().int().positive(),
   implementationTimeoutMs: z.number().int().positive(),

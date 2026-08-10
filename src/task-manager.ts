@@ -12,7 +12,8 @@ import { logEvent } from "./logger.js";
 import { redact } from "./security.js";
 import { atomicWriteFile } from "./atomic-write.js";
 import { run } from "./process.js";
-import type { AppConfig, ImplementationInput, ReviewInput, TaskRecord } from "./types.js";
+import { applyThinkingLevel } from "./thinking.js";
+import type { AppConfig, ImplementationInput, ReviewInput, TaskRecord, ThinkingLevel } from "./types.js";
 
 interface Policy {
   root: string;
@@ -92,11 +93,12 @@ export class TaskManager {
     return retried;
   }
 
-  async startReview(input: ReviewInput): Promise<{ taskId: string; model: string; result: string }> {
+  async startReview(input: ReviewInput): Promise<{ taskId: string; model: string; thinkingLevel: ThinkingLevel; result: string }> {
     if (!input.collaborationAuthorized) throw new Error("缺少当前任务的 codex-dp 协作授权");
     const config = await loadConfig();
     const root = assertCurrentWorkspace(input.projectRoot);
     const model = input.requestedModel || config.defaultModel;
+    const thinkingLevel = input.requestedThinkingLevel || config.defaultThinkingLevel;
     if (!model) throw new Error("尚未配置默认 DeepSeek 模型，且当前任务未指定模型");
     const pi = await discoverPi(config);
     await fs.access(guardExtensionPath);
@@ -123,6 +125,7 @@ export class TaskManager {
     });
     try {
       await client.start();
+      await applyThinkingLevel(client, thinkingLevel);
     } catch (error) {
       await stopRpcClient(client, getRpcPid(client));
       await atomicWriteFile(path.join(taskDirectory, "failure.txt"), redact(String(error)));
@@ -134,6 +137,7 @@ export class TaskManager {
       phase: "review",
       createdAt: Date.now(),
       model,
+      thinkingLevel,
       revisionRounds: 0,
       allowedPaths: [],
       binaryChangesAuthorized: false,
@@ -144,12 +148,12 @@ export class TaskManager {
       piPid: getRpcPid(client)
     };
     this.tasks.set(id, task);
-    await logEvent("task_started", { taskId: id, phase: task.phase, model, provider: config.provider });
+    await logEvent("task_started", { taskId: id, phase: task.phase, model, thinkingLevel, provider: config.provider });
     try {
       const initial = await this.runAgent(task, reviewPrompt(input.requirements, input.codexProposal), config.analysisTimeoutMs, config);
       const result = await this.ensureMarker(task, initial, "CODEX_DP_REVIEW", config.analysisTimeoutMs, config);
       await logEvent("review_completed", { taskId: id, durationMs: Date.now() - task.createdAt });
-      return { taskId: id, model, result };
+      return { taskId: id, model, thinkingLevel, result };
     } catch (error) {
       await this.failTask(task, error);
       throw error;

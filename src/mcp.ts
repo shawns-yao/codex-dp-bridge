@@ -5,6 +5,7 @@ import { z } from "zod";
 import { loadConfig } from "./config.js";
 import { discoverPi } from "./pi-discovery.js";
 import { TaskManager } from "./task-manager.js";
+import { THINKING_LEVELS } from "./types.js";
 
 const manager = new TaskManager();
 const server = new McpServer({ name: "codex-dp", version: "0.1.0" });
@@ -55,7 +56,8 @@ server.registerTool("codex_dp_start_review", {
     requirements: z.string().min(1),
     codexProposal: z.string().min(1),
     collaborationAuthorized: z.boolean(),
-    requestedModel: z.string().optional()
+    requestedModel: z.string().optional(),
+    requestedThinkingLevel: z.enum(THINKING_LEVELS).optional()
   }
 }, async (input) => text(await manager.startReview(input)));
 
