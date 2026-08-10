@@ -8,6 +8,7 @@ test("默认配置符合冻结设计", async () => {
   assert.equal(config.defaultMode, "patch");
   assert.equal(config.maxRevisionRounds, 2);
   assert.equal(config.provider, "opencode-go");
+  assert.equal(config.defaultThinkingLevel, "max");
   assert.equal(config.detailedLogging, false);
 });
 
