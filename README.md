@@ -85,6 +85,7 @@ codex-dp status
 codex-dp doctor
 codex-dp models
 codex-dp config set-model <模型标识>
+codex-dp config set-thinking max
 codex-dp live-test
 codex-dp setup preview
 codex-dp setup apply
@@ -96,6 +97,7 @@ codex-dp setup apply
 - `doctor`：检查 Pi RPC 是否可启动，并列出当前供应商下已认证的模型。
 - `models`：列出当前供应商可用的模型。
 - `config set-model <模型标识>`：设置默认模型。
+- `config set-thinking <思考强度>`：设置默认思考强度，可选 `off`、`minimal`、`low`、`medium`、`high`、`xhigh`、`max`，默认使用 `max`。
 - `live-test`：使用真实模型完成一次固定口令联调，会消耗模型额度。
 - `setup preview`：只展示将要加入的 PATH 项、CLI 入口和 MCP 注册信息，不修改系统。
 - `setup apply`：将项目路径加入用户级 PATH，并注册 `codex-dp` MCP 服务。
@@ -119,9 +121,12 @@ codex-dp live-test
 ```powershell
 codex-dp config show
 codex-dp config set-model <模型标识>
+codex-dp config set-thinking <思考强度>
 ```
 
 默认配置位于 `Config/default.json`。用户配置位于 `Config/config.json`，用户配置会覆盖默认配置中的同名字段。用户配置写入前会在 `Config/backups/` 中保留备份。
+
+`defaultThinkingLevel` 控制 Pi Agent 的默认思考强度，初始值为 `max`。启动任务后，`codex-dp` 会读取当前模型实际支持的思考等级；如果配置等级不受支持，任务会停止并返回可用等级，不会静默降级。MCP 审查工具也可以通过 `requestedThinkingLevel` 为单次任务覆盖默认值，后续分歧审查、实施和修订会沿用该任务的思考强度。
 
 ### 安装和卸载
 
@@ -169,6 +174,7 @@ Pi Agent 在 Git 隔离工作区中直接修改文件。`codex-dp` 会记录基�
 - 补丁只能修改用户批准的路径。
 - 二进制文件变更必须单独获得授权。
 - 实施和修订都有工具调用预算和超时限制。
+- 默认向 Pi RPC 传递 `max` 思考强度，也允许通过配置或单次任务参数自定义；不支持的等级会明确报错。
 - 总超时只累计模型和工具实际执行时间，不计算用户阅读、裁决和授权等待时间。
 - 任务失败时会终止 Pi RPC 进程及其 Windows 子进程树。
 - 日志和失败摘要会省略提示词、补丁、响应、密钥、令牌等字段，并对部分路径进行脱敏。
