@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { findCommand, runCommand } from "./command-discovery.js";
-import { installUnixLauncher, isLauncherDirectoryOnPath, pathInstruction, removeUnixLauncher, restoreUnixLauncher, type UnixLauncherSnapshot } from "./launcher.js";
+import { installUnixLauncher, isLauncherDirectoryOnPath, pathInstruction, removeUnixLauncher, restoreUnixLauncher, snapshotUnixLauncher, type UnixLauncherSnapshot } from "./launcher.js";
 import { atomicWriteFile } from "./atomic-write.js";
 import { cliEntryPath, configBackupDirectory, launcherDirectory, launcherPath, mcpEntryPath, projectRoot } from "./paths.js";
 import { isPathWithin, pathsEqual } from "./path-utils.js";
@@ -35,17 +35,18 @@ export async function setupApply(): Promise<void> {
   await fs.access(cliEntryPath);
   await fs.access(mcpEntryPath);
   const existing = await findCommand("codex-dp").catch(() => undefined);
-  if (existing && !commandBelongsToProject(existing)) throw new Error(`发现同名 codex-dp 命令：${existing}`);
+  if (existing && !(await commandBelongsToProject(existing))) throw new Error(`发现同名 codex-dp 命令：${existing}`);
 
   const oldUserPath = process.platform === "win32" ? await readUserPath() : undefined;
   const snapshot = await backupCodexConfig();
   let launcherSnapshot: UnixLauncherSnapshot | undefined;
   const pathEntry = process.platform === "win32" ? projectRoot : launcherDirectory;
   const needsPath = oldUserPath !== undefined && !splitPath(oldUserPath).some((entry) => pathsEqual(entry, pathEntry));
+  const needsUnixLauncher = process.platform !== "win32" && (!existing || pathsEqual(existing, launcherPath));
   try {
     if (process.platform === "win32") {
       if (needsPath) await writeUserPath([...splitPath(oldUserPath!), projectRoot].join(path.delimiter));
-    } else {
+    } else if (needsUnixLauncher) {
       launcherSnapshot = await installUnixLauncher();
     }
     const list = await runCodex(["mcp", "list"]);
@@ -64,29 +65,35 @@ export async function setupApply(): Promise<void> {
 export async function setupRemove(): Promise<void> {
   const oldUserPath = process.platform === "win32" ? await readUserPath() : undefined;
   const snapshot = await backupCodexConfig();
+  const launcherSnapshot = process.platform === "win32" ? undefined : await snapshotUnixLauncher();
   try {
-    const remove = await runCodex(["mcp", "remove", mcpName]);
-    if (remove.code !== 0 && !/not found|不存在/i.test(remove.stderr)) throw new Error(remove.stderr || "Codex MCP 移除失败");
     if (process.platform === "win32") {
       const next = splitPath(oldUserPath!).filter((entry) => !pathsEqual(entry, projectRoot)).join(path.delimiter);
       await writeUserPath(next);
     } else {
       await removeUnixLauncher();
     }
+    const remove = await runCodex(["mcp", "remove", mcpName]);
+    if (remove.code !== 0 && !/not found|不存在/i.test(remove.stderr)) throw new Error(remove.stderr || "Codex MCP 移除失败");
   } catch (error) {
     if (process.platform === "win32") await writeUserPath(oldUserPath!);
+    else await restoreUnixLauncher(launcherSnapshot).catch(() => undefined);
     await restoreCodexConfig(snapshot);
     throw error;
   }
 }
 
 async function runCodex(args: string[]) {
-  const configured = process.env.CODEX_DP_CODEX_COMMAND?.trim() || "codex";
+  const configured = process.env.CODEX_DP_CODEX_COMMAND?.trim();
+  if (configured) {
+    const commandPath = await findCommand(configured);
+    return await runCommand(commandPath, args, undefined, 30000);
+  }
   if (process.platform === "win32" && process.env.APPDATA) {
     const powershellScript = path.join(process.env.APPDATA, "npm", "codex.ps1");
     if (await exists(powershellScript)) return await runCommand(powershellScript, args, undefined, 30000);
   }
-  const commandPath = await findCommand(configured);
+  const commandPath = await findCommand("codex");
   return await runCommand(commandPath, args, undefined, 30000);
 }
 
@@ -140,10 +147,12 @@ function splitPath(value: string): string[] {
   return value.split(path.delimiter).map((entry) => entry.trim()).filter(Boolean);
 }
 
-function commandBelongsToProject(commandPath: string): boolean {
-  return process.platform === "win32"
-    ? isPathWithin(projectRoot, commandPath)
-    : pathsEqual(commandPath, launcherPath);
+async function commandBelongsToProject(commandPath: string): Promise<boolean> {
+  if (pathsEqual(commandPath, launcherPath) || isPathWithin(projectRoot, commandPath)) return true;
+  const resolvedCommandPath = await fs.realpath(commandPath).catch(() => commandPath);
+  if (pathsEqual(resolvedCommandPath, cliEntryPath) || isPathWithin(projectRoot, resolvedCommandPath)) return true;
+  const npmShimTarget = path.resolve(path.dirname(commandPath), "node_modules", "codex-dp", "dist", "src", "cli.js");
+  return pathsEqual(npmShimTarget, cliEntryPath);
 }
 
 function hasMcpEntry(output: string): boolean {

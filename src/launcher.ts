@@ -44,6 +44,19 @@ export async function restoreUnixLauncher(snapshot: UnixLauncherSnapshot | undef
   await fs.chmod(launcherPath, snapshot.mode ?? 0o755);
 }
 
+export async function snapshotUnixLauncher(): Promise<UnixLauncherSnapshot | undefined> {
+  if (process.platform === "win32") return undefined;
+  try {
+    const content = await fs.readFile(launcherPath, "utf8");
+    if (!content.includes(launcherMarker)) throw new Error(`同名启动入口不属于 codex-dp：${launcherPath}`);
+    const metadata = await fs.stat(launcherPath);
+    return { existed: true, content, mode: metadata.mode & 0o777 };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { existed: false };
+    throw error;
+  }
+}
+
 export async function removeUnixLauncher(): Promise<void> {
   if (process.platform === "win32") return;
   try {
