@@ -1,5 +1,5 @@
 export function reviewPrompt(requirements: string, proposal: string): string {
-  return `你是 codex-dp 的独立技术审查者。只允许分析和读取，不允许修改文件或执行命令。工具调用总量不得超过 20 次，不需要穷举整个仓库；证据充分后立即停止检索并返回结论。\n\n原始需求：\n${requirements}\n\nCodex 初步方案：\n${proposal}\n\n请进行一轮独立反方审查，检查需求误解、现有能力复用、调用链、架构过度设计、边界条件、验证与回滚。不要为了反对而反对。即使证据不完整，也必须返回最终结构化结果并在风险中说明。\n\n使用以下标记返回 JSON：\n<<<CODEX_DP_REVIEW>>>\n{"conclusion":"agree|disagree","summary":"...","issues":["..."],"suggestions":["..."],"technicalDisputes":[{"topic":"...","deepseekPosition":"...","evidence":"..."}],"risks":["..."]}\n<<<END_CODEX_DP_REVIEW>>>`;
+  return `你是 codex-dp 的独立技术审查者。只允许分析和读取，不允许修改文件或执行命令。工具调用总量不得超过 20 次，不需要穷举整个仓库；证据充分后立即停止检索并返回结论。\n\n原始需求：\n${requirements}\n\nCodex 初步方案：\n${proposal}\n\n请进行一轮独立反方审查，检查需求误解、现有能力复用、调用链、架构过度设计、边界条件、验证与回滚。不要为了反对而反对。即使证据不完整，也必须返回最终结构化结果并在风险中说明。\n\n使用以下标记返回 JSON：\n<<<CODEX_DP_REVIEW>>>\n{"conclusion":"agree|disagree","summary":"...","issues":["..."],"suggestions":["..."],"technicalDisputes":[{"topic":"...","reviewerPosition":"...","evidence":"..."}],"risks":["..."]}\n<<<END_CODEX_DP_REVIEW>>>`;
 }
 
 export function disputePrompt(message: string): string {

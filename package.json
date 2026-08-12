@@ -12,7 +12,7 @@
   "bugs": {
     "url": "https://github.com/shawns-yao/codex-dp-bridge/issues"
   },
-  "keywords": ["codex", "mcp", "pi-agent", "deepseek", "cli"],
+  "keywords": ["codex", "mcp", "pi-agent", "multi-model", "cli"],
   "publishConfig": {
     "access": "public",
     "provenance": true,
