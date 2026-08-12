@@ -1,14 +1,29 @@
 {
   "name": "codex-dp",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "Codex to Pi Agent collaboration bridge",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shawns-yao/codex-dp-bridge.git"
+  },
+  "homepage": "https://github.com/shawns-yao/codex-dp-bridge#readme",
+  "bugs": {
+    "url": "https://github.com/shawns-yao/codex-dp-bridge/issues"
+  },
+  "keywords": ["codex", "mcp", "pi-agent", "deepseek", "cli"],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "registry": "https://registry.npmjs.org/"
+  },
   "bin": { "codex-dp": "dist/src/cli.js" },
   "files": [
     "Config/default.json",
     "dist/src",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -17,7 +32,8 @@
     "test:docker:debian": "docker compose -f docker-compose.test.yml build debian && docker compose -f docker-compose.test.yml run --rm debian",
     "test:docker:alpine": "docker compose -f docker-compose.test.yml build alpine && docker compose -f docker-compose.test.yml run --rm alpine",
     "prepare": "npm run build",
-    "prepack": "npm run check && npm run build"
+    "prepack": "npm run check && npm run build",
+    "prepublishOnly": "npm test"
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "0.84.1",
