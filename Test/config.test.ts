@@ -13,7 +13,8 @@ test("默认配置符合冻结设计", async () => {
 });
 
 test("安装预览不会修改系统", () => {
-  const preview = setupPreview() as { pathEntry: string; mcp: { name: string } };
-  assert.match(preview.pathEntry, /codex-dp$/i);
+  const preview = setupPreview() as { pathEntry: string; commandEntry: string; mcp: { name: string } };
+  assert.ok(preview.pathEntry);
+  assert.match(preview.commandEntry, /codex-dp(?:\.cmd)?$/i);
   assert.equal(preview.mcp.name, "codex-dp");
 });
