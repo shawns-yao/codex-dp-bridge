@@ -16,5 +16,6 @@
 | 跨平台命令发现和脚本调用 | 已实现 | 2026-08-12 | PATH 查找、PowerShell、Windows 命令脚本、Pi CLI 定位 |
 | 跨平台启动入口和 MCP 注册 | 已实现 | 2026-08-12 | Windows 用户 PATH、Unix 用户启动入口、Codex MCP 注册 |
 | Linux 和 macOS shell PATH 自动管理 | 未实现 | 2026-08-12 | bash、zsh、Fish 配置文件自动修改 |
-| 三平台自动化验证与发布配置 | 未实现 | 2026-08-12 | Windows、Linux、macOS 测试矩阵、npm 安装产物 |
+| 三平台自动化验证与安装产物 | 已实现 | 2026-08-12 | Windows、Linux、macOS CI、源码启动入口、npm 安装文件清单 |
+| 正式发布许可证和 npm 发布流程 | 未实现 | 2026-08-12 | 开源许可证选择、仓库地址、npm 发布权限 |
 | 项目级自定义 Prompt | 未实现 | 2026-08-09 | 后续版本，不进入第一版 |
