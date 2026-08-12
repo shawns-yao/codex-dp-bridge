@@ -8,6 +8,7 @@ import { tempDirectory } from "./paths.js";
 import { setupApply, setupPreview, setupRemove } from "./setup.js";
 import { applyThinkingLevel, isThinkingLevel } from "./thinking.js";
 import { cleanupTaskArtifacts } from "./workspace.js";
+import { isPathWithin, pathsEqual } from "./path-utils.js";
 
 const [command = "status", subcommand, value] = process.argv.slice(2);
 
@@ -93,7 +94,8 @@ try {
   } else if (command === "temp" && subcommand === "inspect") {
     if (!value) throw new Error("缺少任务标识");
     const target = path.resolve(tempDirectory, value);
-    if (!target.startsWith(`${path.resolve(tempDirectory)}${path.sep}`)) throw new Error("拒绝读取 Temp 目录之外的路径");
+    const tempRoot = path.resolve(tempDirectory);
+    if (pathsEqual(tempRoot, target) || !isPathWithin(tempRoot, target)) throw new Error("拒绝读取 Temp 目录之外的路径");
     const failure = await fs.readFile(path.join(target, "failure.txt"), "utf8").catch(() => undefined);
     const policy = await fs.readFile(path.join(target, "policy.json"), "utf8").then((text) => JSON.parse(text) as { mode?: string; allowedPaths?: string[] }).catch(() => undefined);
     print({

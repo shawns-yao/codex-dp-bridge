@@ -1,6 +1,7 @@
 import path from "node:path";
 import fs from "node:fs/promises";
 import type { ExtensionAPI, ToolCallEvent } from "@earendil-works/pi-coding-agent";
+import { isPathWithin } from "./path-utils.js";
 
 interface Policy {
   root: string;
@@ -10,8 +11,6 @@ interface Policy {
   maxToolCalls: number;
   generation: number;
 }
-
-function normalize(value: string): string { return path.resolve(value).toLowerCase(); }
 
 function wildcard(pattern: string): RegExp {
   const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replaceAll("*", ".*");
@@ -46,7 +45,7 @@ async function canonicalTarget(root: string, target: string): Promise<{ root: st
     }
   }
   const realExisting = await fs.realpath(existing);
-  return { root: normalize(realRoot), target: normalize(path.join(realExisting, ...suffix)) };
+  return { root: path.resolve(realRoot), target: path.resolve(realExisting, ...suffix) };
 }
 
 async function containsSymlink(root: string, target: string): Promise<boolean> {
@@ -77,15 +76,13 @@ export default function guard(pi: ExtensionAPI): void {
     }
     if (event.toolName === "bash") return { block: true, reason: "Pi 不允许执行 Shell", terminate: true };
     const target = targetPath(event, policy.root);
-    const lexicalRoot = normalize(policy.root);
-    const lexicalTarget = normalize(target);
-    if (!(lexicalTarget === lexicalRoot || lexicalTarget.startsWith(`${lexicalRoot}${path.sep}`))) {
+    if (!isPathWithin(policy.root, target)) {
       return { block: true, reason: "禁止访问当前任务根目录之外的路径", terminate: true };
     }
     let canonical: { root: string; target: string };
     try { canonical = await canonicalTarget(policy.root, target); }
     catch { return { block: true, reason: "无法安全解析目标路径", terminate: false }; }
-    if (!(canonical.target === canonical.root || canonical.target.startsWith(`${canonical.root}${path.sep}`))) {
+    if (!isPathWithin(canonical.root, canonical.target)) {
       return { block: true, reason: "禁止通过符号链接访问任务根目录之外的路径", terminate: true };
     }
     const relative = path.relative(policy.root, target).replaceAll("\\", "/");
@@ -96,8 +93,8 @@ export default function guard(pi: ExtensionAPI): void {
       if (policy.mode !== "direct") return { block: true, reason: "当前模式禁止直接写入", terminate: true };
       if (await containsSymlink(policy.root, target)) return { block: true, reason: "直接模式禁止通过符号链接写入", terminate: true };
       const allowed = policy.allowedPaths.some((entry) => {
-        const allowedTarget = normalize(path.resolve(policy.root, entry));
-        return lexicalTarget === allowedTarget || lexicalTarget.startsWith(`${allowedTarget}${path.sep}`);
+        const allowedTarget = path.resolve(policy.root, entry);
+        return isPathWithin(allowedTarget, target);
       });
       if (!allowed) return { block: true, reason: "写入路径不在已批准范围内", terminate: true };
     }

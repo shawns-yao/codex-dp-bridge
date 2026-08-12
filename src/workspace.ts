@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { run, runWithInput } from "./process.js";
 import { tempDirectory } from "./paths.js";
+import { isPathWithin, pathsEqual } from "./path-utils.js";
 
 async function git(root: string, args: string[]): Promise<string> {
   const result = await run("git", ["-C", root, ...args], undefined, 120000);
@@ -11,7 +12,7 @@ async function git(root: string, args: string[]): Promise<string> {
 
 export async function assertGitWorkspaceRoot(root: string): Promise<void> {
   const top = path.resolve(await git(root, ["rev-parse", "--show-toplevel"]));
-  if (top.toLowerCase() !== path.resolve(root).toLowerCase()) throw new Error("直接模式要求目标目录是 Git 仓库根目录");
+  if (!pathsEqual(top, root)) throw new Error("直接模式要求目标目录是 Git 仓库根目录");
 }
 
 export async function assertCleanGitWorkspace(root: string): Promise<void> {
@@ -92,7 +93,7 @@ function normalizeSnapshotPatch(patch: string): string {
 export async function removeIsolation(root: string, worktree: string): Promise<void> {
   const safeRoot = path.resolve(tempDirectory);
   const target = path.resolve(worktree);
-  if (!target.startsWith(`${safeRoot}${path.sep}`)) throw new Error("拒绝清理 Temp 目录之外的隔离工作区");
+  if (pathsEqual(safeRoot, target) || !isPathWithin(safeRoot, target)) throw new Error("拒绝清理 Temp 目录之外的隔离工作区");
   await git(root, ["worktree", "remove", "--force", target]);
 }
 
@@ -112,7 +113,7 @@ export async function cleanupTaskArtifacts(taskId: string): Promise<void> {
 function resolveTaskDirectory(taskId: string): string {
   const root = path.resolve(tempDirectory);
   const target = path.resolve(tempDirectory, taskId);
-  if (!target.startsWith(`${root}${path.sep}`)) throw new Error("拒绝清理 Temp 目录之外的任务目录");
+  if (pathsEqual(root, target) || !isPathWithin(root, target)) throw new Error("拒绝清理 Temp 目录之外的任务目录");
   return target;
 }
 
