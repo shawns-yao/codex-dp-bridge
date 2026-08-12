@@ -79,18 +79,6 @@ export const configBackupDirectory = path.join(configDirectory, "backups");
 export const userConfigPath = path.join(configDirectory, "config.json");
 export const tempDirectory = appDirectories.tempDirectory;
 export const logDirectory = appDirectories.logDirectory;
-export const launcherDirectory = resolveLauncherDirectory();
-export const launcherPath = process.platform === "win32" ? path.join(projectRoot, "codex-dp.cmd") : path.join(launcherDirectory, "codex-dp");
 export const guardExtensionPath = path.join(projectRoot, "dist", "src", "pi-guard-extension.js");
 export const mcpEntryPath = path.join(projectRoot, "dist", "src", "mcp.js");
 export const cliEntryPath = path.join(projectRoot, "dist", "src", "cli.js");
-
-function resolveLauncherDirectory(): string {
-  if (process.platform === "win32") return projectRoot;
-  const override = process.env.CODEX_DP_BIN_DIR?.trim();
-  if (override) {
-    if (!path.isAbsolute(override)) throw new Error("CODEX_DP_BIN_DIR 必须是绝对路径");
-    return path.resolve(override);
-  }
-  return path.join(os.homedir(), ".local", "bin");
-}

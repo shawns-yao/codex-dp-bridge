@@ -8,9 +8,6 @@
   "files": [
     "Config/default.json",
     "dist/src",
-    "codex-dp",
-    "codex-dp.cmd",
-    "codex-dp.ps1",
     "README.md"
   ],
   "scripts": {
