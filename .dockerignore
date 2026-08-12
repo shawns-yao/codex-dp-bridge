@@ -1,0 +1,10 @@
+.git
+.codegraph
+Config/backups
+Config/config.json
+dist
+Log
+node_modules
+Temp
+*.log
+*.tgz

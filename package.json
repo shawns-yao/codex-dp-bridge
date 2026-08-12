@@ -17,6 +17,8 @@
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
     "test": "node --test dist/Test/**/*.test.js",
+    "test:docker:debian": "docker compose -f docker-compose.test.yml build debian && docker compose -f docker-compose.test.yml run --rm debian",
+    "test:docker:alpine": "docker compose -f docker-compose.test.yml build alpine && docker compose -f docker-compose.test.yml run --rm alpine",
     "prepare": "npm run build",
     "prepack": "npm run check && npm run build"
   },

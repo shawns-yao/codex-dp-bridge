@@ -1,0 +1,16 @@
+services:
+  debian:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      args:
+        NODE_IMAGE: node:22.19-bookworm-slim
+    image: codex-dp-test:debian-amd64
+
+  alpine:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      args:
+        NODE_IMAGE: node:22.19-alpine
+    image: codex-dp-test:alpine-amd64
