@@ -56,7 +56,8 @@ export interface TaskRecord {
 }
 
 export interface PiInstallation {
-  commandPath: string;
+  source: "bundled" | "configured";
+  commandPath?: string;
   cliPath: string;
   version: string;
 }

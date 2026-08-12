@@ -6,7 +6,7 @@ import { atomicWriteFile } from "./atomic-write.js";
 import { THINKING_LEVELS, type AppConfig } from "./types.js";
 
 const schema = z.object({
-  piCommand: z.string().min(1),
+  piCommand: z.string(),
   compatiblePiRange: z.string().min(1),
   provider: z.string().min(1),
   defaultModel: z.string(),
