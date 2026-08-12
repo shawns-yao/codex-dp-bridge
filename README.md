@@ -68,7 +68,7 @@ npm install --global codex-dp
 安装完成后确认命令可用：
 
 ```shell
-codex-dp --help
+codex-dp setup preview
 ```
 
 `codex-dp` 默认使用 npm 包依赖中的 Pi Agent `0.84.1`，不要求用户单独安装 Pi，也不依赖固定目录。已经安装其他 Pi 时，可以使用环境变量 `CODEX_DP_PI` 指定命令名、CLI 文件、Pi npm 包目录或 Pi 项目根目录；指定版本必须满足 `>=0.84.1 <0.85.0`。
