@@ -21,7 +21,7 @@
 - Git
 - 已安装并可以在 PATH 中找到 Codex CLI
 - npm 包已内置兼容的 Pi Agent 运行时；也可以显式指定已有 Pi 安装
-- 已通过 Pi Agent 原生登录流程完成 OpenCode Go 认证
+- Pi 中至少存在一个可用模型；可以使用云端供应商、自定义供应商或本地模型
 - 项目目录位于本地 Git 工作区
 
 ## 架构流程
@@ -42,7 +42,7 @@ codex-dp
   └─ 配置、日志、备份和临时任务目录
        │
        ▼
-Pi Agent / OpenCode Go / DeepSeek
+Pi Agent / 任意已配置供应商或本地模型
 ```
 
 一次协作任务的流程如下：
@@ -79,7 +79,7 @@ Codex CLI 需要可以从 PATH 中找到，并支持 MCP 管理命令：
 codex --version
 ```
 
-认证信息仍由 Pi Agent 管理。首次使用前，需要通过 Pi Agent 支持的登录流程完成 OpenCode Go 认证。`codex-dp` 不直接接收或保存 OpenCode Go API Key。
+模型和认证信息由 Pi Agent 管理。用户可以使用 Anthropic、OpenAI、Google 等 Pi 支持的供应商，也可以通过 Pi 的 `models.json` 配置 Ollama、LM Studio、vLLM 或其他兼容服务。`codex-dp` 不强制登录 OpenCode Go，也不直接接收或保存任何供应商密钥。
 
 从源码参与开发时才需要克隆仓库并构建：
 
@@ -107,7 +107,7 @@ codex-dp setup apply
 codex-dp status
 codex-dp doctor
 codex-dp models
-codex-dp config set-model <模型标识>
+codex-dp config set-model <供应商/模型标识>
 codex-dp config set-thinking max
 codex-dp live-test
 ```
@@ -115,9 +115,9 @@ codex-dp live-test
 各命令的用途：
 
 - `status`：检查 Node.js、Pi Agent、供应商和默认模型配置。
-- `doctor`：检查 Pi RPC 是否可启动，并列出当前供应商下已认证的模型。
-- `models`：列出当前供应商可用的模型。
-- `config set-model <模型标识>`：设置默认模型。
+- `doctor`：检查 Pi RPC 是否可启动，并列出所有可用供应商和模型。
+- `models`：列出 Pi 中所有可用模型。
+- `config set-model <供应商/模型标识>`：设置默认模型，例如 `anthropic/claude-sonnet-4-5`；模型标识唯一时也可以省略供应商。
 - `config set-thinking <思考强度>`：设置默认思考强度，可选 `off`、`minimal`、`low`、`medium`、`high`、`xhigh`、`max`，默认使用 `max`。
 - `live-test`：使用真实模型完成一次固定口令联调，会消耗模型额度。
 - `setup preview`：只展示平台和 MCP 注册信息，不修改系统。
@@ -141,7 +141,7 @@ codex-dp live-test
 
 ```shell
 codex-dp config show
-codex-dp config set-model <模型标识>
+codex-dp config set-model <供应商/模型标识>
 codex-dp config set-thinking <思考强度>
 ```
 
@@ -165,6 +165,8 @@ codex-dp config set-thinking <思考强度>
 | `CODEX_HOME` | 指定 Codex 配置目录 |
 
 `defaultThinkingLevel` 控制 Pi Agent 的默认思考强度，初始值为 `max`。启动任务后，`codex-dp` 会读取当前模型实际支持的思考等级；如果配置等级不受支持，任务会停止并返回可用等级，不会静默降级。MCP 审查工具也可以通过 `requestedThinkingLevel` 为单次任务覆盖默认值，后续分歧审查、实施和修订会沿用该任务的思考强度。
+
+`provider` 和 `defaultModel` 默认为空，此时沿用 Pi 当前选中的供应商和模型。`config set-model` 推荐使用 `provider/model` 格式；如果多个供应商存在相同模型标识，必须明确提供供应商。MCP 的 `requestedModel` 遵循相同规则。
 
 ### 安装和卸载
 
@@ -265,7 +267,7 @@ codex-dp doctor
 codex-dp models
 ```
 
-确认已经通过 Pi Agent 原生登录流程完成 OpenCode Go 认证，并且配置的供应商与模型一致。
+确认 Pi 中至少有一个可用模型。云端供应商可以使用 Pi 的登录或 API Key 配置；本地模型可以通过 Pi 的 `models.json` 配置。`codex-dp models` 会列出当前实际可用的全部模型，不限定供应商。
 
 ### `live-test` 失败
 
@@ -275,7 +277,7 @@ codex-dp models
 2. `codex-dp doctor` 是否返回已认证模型。
 3. `codex-dp config show` 是否存在默认模型。
 4. 默认模型是否仍然可以使用。
-5. Pi Agent 是否因为认证、网络或额度问题拒绝请求。
+5. Pi Agent 是否因为供应商认证、模型服务、网络或额度问题拒绝请求。
 
 ### MCP 注册失败
 
@@ -352,7 +354,7 @@ docker run --platform linux/arm64 --rm --init codex-dp-test:debian-arm64
 
 - npm 全局安装目录必须位于当前用户 PATH；该配置由 npm 和用户的 Node.js 版本管理工具负责。
 - 默认使用包内 Pi Agent；外部 Pi 仅在用户显式指定时使用，并且必须满足兼容版本范围。
-- `codex-dp` 不直接录入或保存 OpenCode Go API Key。
+- `codex-dp` 不直接录入或保存任何供应商 API Key。
 - Git 忽略文件默认不会复制到隔离工作区。
 - 失败任务只保留脱敏摘要和隔离结果，不恢复或续传 Pi 会话。
 - 授权字段依赖 Codex 转述，服务端无法独立验证用户授权来源。
