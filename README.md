@@ -326,6 +326,26 @@ npm run build
 npm test
 ```
 
+仓库还提供隔离的 Docker Linux 验证矩阵。Debian 和 Alpine 的本机架构验证可以分别执行：
+
+```shell
+npm run test:docker:debian
+npm run test:docker:alpine
+```
+
+使用 Docker Buildx 和 QEMU 验证 ARM64 Debian：
+
+```shell
+docker buildx build --platform linux/arm64 \
+  --build-arg NODE_IMAGE=node:22.19-bookworm \
+  -f Dockerfile.test \
+  -t codex-dp-test:debian-arm64 \
+  --load .
+docker run --platform linux/arm64 --rm --init codex-dp-test:debian-arm64
+```
+
+镜像构建阶段会依次执行依赖安装、类型检查、构建、测试和 npm 打包预览；容器启动阶段会执行 `setup preview`。Docker 只能模拟 Linux 用户空间和 CPU 架构，不能替代 Windows 或 macOS 原生验证；三平台原生验证由 GitHub Actions 矩阵负责。
+
 ## 已知限制
 
 - Linux 和 macOS 会安装用户级启动入口，但不会自动改写 bash、zsh 或 Fish 配置文件。
@@ -336,7 +356,7 @@ npm test
 - 授权字段依赖 Codex 转述，服务端无法独立验证用户授权来源。
 - 不自动提交、暂存或推送代码。
 - 项目级自定义 Prompt 尚未实现。
-- 正式开源许可证、npm 发布流程、日志轮转和会话恢复尚未实现。
+- 正式开源许可证、npm 发布流程、日志轮转和会话恢复尚未实现。仓库在许可证确定前不具备完整的开源再分发授权。
 
 ## 当前后续计划
 
