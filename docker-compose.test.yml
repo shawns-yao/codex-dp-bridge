@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile.test
       args:
-        NODE_IMAGE: node:22.19-bookworm-slim
+        NODE_IMAGE: node:22.19-bookworm
     image: codex-dp-test:debian-amd64
 
   alpine:
