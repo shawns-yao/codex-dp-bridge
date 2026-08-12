@@ -11,7 +11,7 @@ import { directPrompt, disputePrompt, patchPrompt, reviewPrompt, revisionPrompt 
 import { logEvent } from "./logger.js";
 import { redact } from "./security.js";
 import { atomicWriteFile } from "./atomic-write.js";
-import { run } from "./process.js";
+import { terminateProcessTree } from "./process.js";
 import { applyThinkingLevel } from "./thinking.js";
 import type { AppConfig, ImplementationInput, ReviewInput, TaskRecord, ThinkingLevel } from "./types.js";
 
@@ -300,7 +300,5 @@ function getRpcPid(client: RpcClient): number | undefined {
 async function stopRpcClient(client: RpcClient, pid?: number, abort = false): Promise<void> {
   if (abort) await client.abort().catch(() => undefined);
   await client.stop().catch(() => undefined);
-  if (process.platform === "win32" && pid) {
-    await run("taskkill.exe", ["/PID", String(pid), "/T", "/F"], undefined, 15000).catch(() => undefined);
-  }
+  await terminateProcessTree(pid).catch(() => undefined);
 }
