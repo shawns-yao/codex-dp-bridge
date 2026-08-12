@@ -2,7 +2,7 @@
 
 `codex-dp` 是 Codex 与独立 Pi Agent 之间的本地协作桥接工具。Codex 负责需求分析、方案裁决和最终验收；Pi Agent 负责独立反方审查和经授权的代码实现。
 
-当前版本提供 Windows 11、Linux 和 macOS 适配，使用 Node.js 启动本地 CLI 和 MCP 服务，不访问数据库，不自动提交、暂存或推送代码。
+当前版本提供 Windows 11、Linux 和 macOS 适配，通过 npm 安装 CLI 和 MCP 服务，不访问数据库，不自动提交、暂存或推送代码。
 
 ## 核心能力
 
@@ -20,7 +20,7 @@
 - Node.js `>=22.19.0`
 - Git
 - 已安装并可以在 PATH 中找到 Codex CLI
-- 已安装并可以在 PATH 中找到 Pi Agent 命令
+- npm 包已内置兼容的 Pi Agent 运行时；也可以显式指定已有 Pi 安装
 - 已通过 Pi Agent 原生登录流程完成 OpenCode Go 认证
 - 项目目录位于本地 Git 工作区
 
@@ -59,45 +59,47 @@ Pi Agent / OpenCode Go / DeepSeek
 
 ## 安装
 
-在项目目录中执行：
+正式发布后使用 npm 全局安装：
 
 ```shell
-npm install
-npm run build
+npm install --global codex-dp
 ```
 
-`npm install` 会执行构建准备脚本，显式执行 `npm run build` 可以再次确认构建产物完整。仓库提供以下源码启动入口：
-
-- Windows PowerShell：`.\codex-dp.ps1 <命令>`
-- Windows 命令提示符：`codex-dp.cmd <命令>`
-- Linux 和 macOS：`./codex-dp <命令>`
-- 通用入口：`node dist/src/cli.js <命令>`
-
-通过不保留 Unix 执行权限的压缩包获取源码时，需要先执行：
+安装完成后确认命令可用：
 
 ```shell
-chmod +x ./codex-dp
+codex-dp --help
 ```
 
-安装 Pi Agent 和 Codex CLI 后，先确认两个命令都可以从 PATH 中找到：
+`codex-dp` 默认使用 npm 包依赖中的 Pi Agent `0.84.1`，不要求用户单独安装 Pi，也不依赖固定目录。已经安装其他 Pi 时，可以使用环境变量 `CODEX_DP_PI` 指定命令名、CLI 文件、Pi npm 包目录或 Pi 项目根目录；指定版本必须满足 `>=0.84.1 <0.85.0`。
+
+Codex CLI 需要可以从 PATH 中找到，并支持 MCP 管理命令：
 
 ```shell
-pi --version
 codex --version
 ```
 
-然后通过 Pi Agent 自身的登录流程完成 OpenCode Go 认证。`codex-dp` 不直接接收或保存 OpenCode Go API Key。
+认证信息仍由 Pi Agent 管理。首次使用前，需要通过 Pi Agent 支持的登录流程完成 OpenCode Go 认证。`codex-dp` 不直接接收或保存 OpenCode Go API Key。
+
+从源码参与开发时才需要克隆仓库并构建：
+
+```shell
+git clone https://github.com/shawns-yao/codex-dp-bridge.git
+cd codex-dp-bridge
+npm ci
+npm run build
+```
 
 ## 首次配置和健康检查
 
-在项目目录中先预览和应用安装配置：
+预览并注册 Codex MCP 服务：
 
 ```shell
-node dist/src/cli.js setup preview
-node dist/src/cli.js setup apply
+codex-dp setup preview
+codex-dp setup apply
 ```
 
-Windows 会把源码目录加入用户级 PATH。Linux 和 macOS 会在 `~/.local/bin` 安装用户级启动入口，但不会修改 shell 配置文件；如果预览结果包含 `pathInstruction`，需要把其中的 PATH 配置加入所用 shell 的配置文件，然后重新打开终端。
+全局命令入口由 npm 管理。`setup apply` 只注册名为 `codex-dp` 的 Codex MCP 服务，不修改 Windows 用户 PATH，不修改 shell 配置，也不创建额外启动脚本。
 
 安装完成后依次执行：
 
@@ -118,11 +120,11 @@ codex-dp live-test
 - `config set-model <模型标识>`：设置默认模型。
 - `config set-thinking <思考强度>`：设置默认思考强度，可选 `off`、`minimal`、`low`、`medium`、`high`、`xhigh`、`max`，默认使用 `max`。
 - `live-test`：使用真实模型完成一次固定口令联调，会消耗模型额度。
-- `setup preview`：只展示平台、PATH 项、CLI 入口和 MCP 注册信息，不修改系统。
-- `setup apply`：Windows 维护用户级 PATH；Linux 和 macOS 安装用户级启动入口；三个平台都会注册 `codex-dp` MCP 服务。
-- `setup remove`：移除本项目管理的 PATH 项或启动入口，并移除 `codex-dp` MCP 服务。
+- `setup preview`：只展示平台和 MCP 注册信息，不修改系统。
+- `setup apply`：注册 `codex-dp` MCP 服务。
+- `setup remove`：移除 `codex-dp` MCP 服务；卸载程序需另行执行 `npm uninstall --global codex-dp`。
 
-`setup apply` 前应确认预览结果中没有不希望修改的路径或同名 MCP 服务。
+`setup apply` 前应确认预览结果中的 Node.js 与 MCP 文件路径属于当前 npm 安装，并确认不存在同名 MCP 服务。
 
 ## 常用命令
 
@@ -158,7 +160,7 @@ codex-dp config set-thinking <思考强度>
 | 环境变量 | 用途 |
 | --- | --- |
 | `CODEX_DP_HOME` | 使用一个绝对路径统一存放 `Config/`、`Log/` 和 `Temp/` |
-| `CODEX_DP_BIN_DIR` | 指定 Linux 或 macOS 用户启动入口目录，必须是绝对路径 |
+| `CODEX_DP_PI` | 指定已有 Pi 命令、CLI 文件、npm 包目录或项目根目录；未设置时使用包内 Pi |
 | `CODEX_DP_CODEX_COMMAND` | 指定 Codex CLI 命令名或绝对路径 |
 | `CODEX_HOME` | 指定 Codex 配置目录 |
 
@@ -172,7 +174,7 @@ codex-dp setup apply
 codex-dp setup remove
 ```
 
-`setup apply` 会备份已有的 Codex 配置，并在失败时尝试恢复 PATH、Unix 启动入口和 Codex 配置。它不会修改 Codex 原生多 Agent 编排配置，但会注册或移除名为 `codex-dp` 的 MCP 服务。
+`setup apply` 会备份已有的 Codex 配置，并在失败时尝试恢复配置。它不会修改 PATH 或 Codex 原生多 Agent 编排配置，只会注册或移除名为 `codex-dp` 的 MCP 服务。
 
 ### 任务诊断
 
@@ -226,6 +228,7 @@ Config/default.json   默认配置模板
 src/                  TypeScript 源代码
 Test/                 自动化测试
 dist/                 构建输出，不提交到 Git
+LICENSE               MIT 许可证
 ```
 
 用户配置、配置备份、运行日志和任务临时目录位于前述平台用户目录，不再依赖源码所在的本地绝对路径。包含密钥、令牌或个人配置的文件不应加入版本控制。
@@ -237,11 +240,10 @@ dist/                 构建输出，不提交到 Git
 执行：
 
 ```shell
-pi --version
 codex-dp status
 ```
 
-Windows 可以使用 `where.exe pi`，Linux 和 macOS 可以使用 `which pi` 检查命令位置。如果没有结果，请先将 Pi Agent 安装目录加入 PATH，再重新打开终端。
+默认包内 Pi 不依赖 PATH。设置了 `CODEX_DP_PI` 或用户配置中的 `piCommand` 后，可以在 Windows 使用 `where.exe pi`，在 Linux 和 macOS 使用 `which pi` 检查命令位置；也可以直接指定 Pi CLI、npm 包目录或项目根目录。
 
 ### Pi 版本不兼容
 
@@ -348,16 +350,16 @@ docker run --platform linux/arm64 --rm --init codex-dp-test:debian-arm64
 
 ## 已知限制
 
-- Linux 和 macOS 会安装用户级启动入口，但不会自动改写 bash、zsh 或 Fish 配置文件。
-- Pi Agent 必须独立安装，并通过自身登录流程完成认证。
+- npm 全局安装目录必须位于当前用户 PATH；该配置由 npm 和用户的 Node.js 版本管理工具负责。
+- 默认使用包内 Pi Agent；外部 Pi 仅在用户显式指定时使用，并且必须满足兼容版本范围。
 - `codex-dp` 不直接录入或保存 OpenCode Go API Key。
 - Git 忽略文件默认不会复制到隔离工作区。
 - 失败任务只保留脱敏摘要和隔离结果，不恢复或续传 Pi 会话。
 - 授权字段依赖 Codex 转述，服务端无法独立验证用户授权来源。
 - 不自动提交、暂存或推送代码。
 - 项目级自定义 Prompt 尚未实现。
-- 正式开源许可证、npm 发布流程、日志轮转和会话恢复尚未实现。仓库在许可证确定前不具备完整的开源再分发授权。
+- npm 首次发布仍需要仓库所有者在 npm 配置 Trusted Publishing；日志轮转和会话恢复尚未实现。
 
 ## 当前后续计划
 
-已实现的功能和仍在计划中的功能统一记录在 `TODO.md`。尚未确定开源许可证，正式发布前必须先完成许可证选择和仓库元数据配置。
+已实现的功能和仍在计划中的功能统一记录在 `TODO.md`。项目使用 MIT 许可证；npm 发布由 GitHub Release 和 Trusted Publishing 工作流触发。
