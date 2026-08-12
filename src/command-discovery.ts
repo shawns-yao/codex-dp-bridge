@@ -35,14 +35,26 @@ export async function runCommand(commandPath: string, args: string[], cwd?: stri
     return await run(powershell, [...prefix, commandPath, ...args], cwd, timeoutMs);
   }
   if (process.platform === "win32" && (extension === ".cmd" || extension === ".bat")) {
-    const commandLine = [quoteWindowsCommandArg(commandPath), ...args.map(quoteWindowsCommandArg)].join(" ");
+    const commandLine = buildWindowsCommandLine(commandPath, args);
     return await run(process.env.ComSpec || "cmd.exe", ["/d", "/s", "/c", commandLine], cwd, timeoutMs);
   }
   return await run(commandPath, args, cwd, timeoutMs);
 }
 
+export function buildWindowsCommandLine(commandPath: string, args: string[]): string {
+  const values = [commandPath, ...args];
+  for (const value of values) {
+    if (/[\r\n\0]/.test(value)) throw new Error("Windows 命令参数包含非法控制字符");
+  }
+  return values.map(quoteWindowsCommandArg).join(" ");
+}
+
 export function quoteWindowsCommandArg(value: string): string {
-  if (!/[\s"&|<>^]/.test(value)) return value;
-  const escaped = value.replace(/(\\*)"/g, "$1$1\\\"").replace(/(\\+)$/g, "$1$1");
+  const escaped = value
+    .replace(/(\\*)"/g, "$1$1\\\"")
+    .replace(/(\\+)$/g, "$1$1")
+    .replace(/%/g, "%%")
+    .replace(/!/g, "^^!")
+    .replace(/[&|<>^]/g, "^$&");
   return `"${escaped}"`;
 }
