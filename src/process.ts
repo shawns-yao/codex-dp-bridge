@@ -4,14 +4,19 @@ export interface ProcessResult { code: number; stdout: string; stderr: string }
 
 const processTreeQueryTimeoutMs = 5000;
 
-export async function terminateProcessTree(pid: number | undefined, graceMs = 250): Promise<void> {
+export async function snapshotProcessTree(pid: number | undefined): Promise<number[]> {
+  if (!pid || pid <= 0 || pid === process.pid || process.platform === "win32") return [];
+  return await findDescendants(pid);
+}
+
+export async function terminateProcessTree(pid: number | undefined, graceMs = 250, knownDescendants?: readonly number[]): Promise<void> {
   if (!pid || pid <= 0 || pid === process.pid) return;
   if (process.platform === "win32") {
     await runKiller("taskkill.exe", ["/PID", String(pid), "/T", "/F"]);
     return;
   }
 
-  const descendants = await findDescendants(pid);
+  const descendants = knownDescendants ? [...knownDescendants] : await findDescendants(pid);
   signalProcessTree(pid, descendants, "SIGTERM");
   if (graceMs > 0) await delay(graceMs);
   const remaining = [...new Set([...descendants, ...(await findDescendants(pid))])];

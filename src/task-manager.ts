@@ -11,7 +11,7 @@ import { directPrompt, disputePrompt, patchPrompt, reviewPrompt, revisionPrompt 
 import { logEvent } from "./logger.js";
 import { redact } from "./security.js";
 import { atomicWriteFile } from "./atomic-write.js";
-import { terminateProcessTree } from "./process.js";
+import { snapshotProcessTree, terminateProcessTree } from "./process.js";
 import { applyThinkingLevel } from "./thinking.js";
 import type { AppConfig, ImplementationInput, ReviewInput, TaskRecord, ThinkingLevel } from "./types.js";
 import { isPathWithin, pathsEqual } from "./path-utils.js";
@@ -299,7 +299,9 @@ function getRpcPid(client: RpcClient): number | undefined {
 }
 
 async function stopRpcClient(client: RpcClient, pid?: number, abort = false): Promise<void> {
+  const descendants = await snapshotProcessTree(pid).catch(() => []);
   if (abort) await client.abort().catch(() => undefined);
-  await client.stop().catch(() => undefined);
-  await terminateProcessTree(pid).catch(() => undefined);
+  const treeStop = terminateProcessTree(pid, 250, descendants).catch(() => undefined);
+  const clientStop = client.stop().catch(() => undefined);
+  await Promise.all([treeStop, clientStop]);
 }
