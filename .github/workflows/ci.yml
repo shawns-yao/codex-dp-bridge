@@ -16,7 +16,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       CODEX_DP_HOME: ${{ runner.temp }}/codex-dp-state
-      CODEX_DP_BIN_DIR: ${{ runner.temp }}/codex-dp-bin
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
