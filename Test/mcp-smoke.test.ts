@@ -8,7 +8,7 @@ test("MCP 服务可以启动并暴露冻结设计中的工具", async () => {
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [mcpEntryPath],
-    env: { ...process.env, PATH: `C:\\Document\\Desktop\\Pi Agent;${process.env.PATH ?? ""}` }
+    env: { ...process.env }
   });
   const client = new Client({ name: "codex-dp-test", version: "0.1.0" });
   await client.connect(transport);
