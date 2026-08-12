@@ -31,33 +31,22 @@ test("命令超时会终止 POSIX 子进程树", async (context) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "codex-dp-process-posix-"));
   const pidFile = path.join(root, "child.pid");
   const script = [
-    "const {spawn}=require('node:child_process');",
-    "const fs=require('node:fs');",
-    `const child=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});`,
-    `fs.writeFileSync(${JSON.stringify(pidFile)},String(child.pid));`,
-    "setInterval(()=>{},1000);"
-  ].join("");
+    "trap 'wait \"$child\" 2>/dev/null; exit 0' TERM INT",
+    "sleep 60 &",
+    "child=$!",
+    "printf %s \"$child\" > \"$1\"",
+    "wait \"$child\""
+  ].join("\n");
   try {
-    await assert.rejects(run(process.execPath, ["-e", script], root, 500), /命令超时/);
-    const childPid = await waitForPid(pidFile);
+    await assert.rejects(run("/bin/sh", ["-c", script, "codex-dp-test", pidFile], root, 500), /命令超时/);
+    const childPid = Number(await fs.readFile(pidFile, "utf8"));
+    assert.ok(Number.isInteger(childPid) && childPid > 0);
     await waitForExit(childPid);
     assert.throws(() => process.kill(childPid, 0));
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }
 });
-
-async function waitForPid(pidFile: string): Promise<number> {
-  const deadline = Date.now() + 3000;
-  while (Date.now() < deadline) {
-    try {
-      const value = Number(await fs.readFile(pidFile, "utf8"));
-      if (Number.isInteger(value) && value > 0) return value;
-    } catch { /* 子进程尚未写入 */ }
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-  throw new Error("未能读取子进程 PID");
-}
 
 async function waitForExit(pid: number): Promise<void> {
   const deadline = Date.now() + 3000;
