@@ -14,6 +14,7 @@ import { atomicWriteFile } from "./atomic-write.js";
 import { terminateProcessTree } from "./process.js";
 import { applyThinkingLevel } from "./thinking.js";
 import type { AppConfig, ImplementationInput, ReviewInput, TaskRecord, ThinkingLevel } from "./types.js";
+import { isPathWithin, pathsEqual } from "./path-utils.js";
 
 interface Policy {
   root: string;
@@ -284,7 +285,7 @@ export class TaskManager {
 async function cleanupTaskDirectory(taskId: string): Promise<void> {
   const root = path.resolve(tempDirectory);
   const target = path.resolve(tempDirectory, taskId);
-  if (!target.startsWith(`${root}${path.sep}`)) throw new Error("拒绝清理 Temp 目录之外的任务目录");
+  if (pathsEqual(root, target) || !isPathWithin(root, target)) throw new Error("拒绝清理 Temp 目录之外的任务目录");
   await fs.rm(target, { recursive: true, force: true });
 }
 

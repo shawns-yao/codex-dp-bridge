@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
+import path from "node:path";
 import { z } from "zod";
-import { defaultConfigPath, userConfigPath } from "./paths.js";
-import { configDirectory } from "./paths.js";
+import { configBackupDirectory, defaultConfigPath, legacyUserConfigPath, userConfigPath } from "./paths.js";
 import { atomicWriteFile } from "./atomic-write.js";
 import { THINKING_LEVELS, type AppConfig } from "./types.js";
 
@@ -25,7 +25,7 @@ async function readJson(pathname: string): Promise<unknown> {
   try {
     return JSON.parse(await fs.readFile(pathname, "utf8"));
   } catch (error) {
-    if (error instanceof SyntaxError) throw new Error(`配置文件格式损坏：${pathname}。请从 Config/backups 恢复最近备份。`);
+    if (error instanceof SyntaxError) throw new Error(`配置文件格式损坏：${pathname}。请从 ${configBackupDirectory} 恢复最近备份。`);
     throw error;
   }
 }
@@ -33,25 +33,31 @@ async function readJson(pathname: string): Promise<unknown> {
 export async function loadConfig(): Promise<AppConfig> {
   const base = await readJson(defaultConfigPath);
   let override: unknown = {};
-  try {
-    override = await readJson(userConfigPath);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-  }
+  const source = await findUserConfigPath();
+  if (source) override = await readJson(source);
   return schema.parse({ ...(base as object), ...(override as object) });
 }
 
 export async function updateConfig(patch: Partial<AppConfig>): Promise<AppConfig> {
   const next = schema.parse({ ...(await loadConfig()), ...patch });
-  try {
-    await fs.access(userConfigPath);
-    const backupDirectory = `${configDirectory}/backups`;
-    await fs.mkdir(backupDirectory, { recursive: true });
-    const backupPath = `${backupDirectory}/config.${new Date().toISOString().replace(/[:.]/g, "-")}.json.bak`;
-    await fs.copyFile(userConfigPath, backupPath);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  const source = await findUserConfigPath();
+  if (source) {
+    await fs.mkdir(configBackupDirectory, { recursive: true, mode: 0o700 });
+    const backupPath = path.join(configBackupDirectory, `config.${new Date().toISOString().replace(/[:.]/g, "-")}.json.bak`);
+    await fs.copyFile(source, backupPath);
   }
   await atomicWriteFile(userConfigPath, `${JSON.stringify(next, null, 2)}\n`);
   return next;
+}
+
+async function findUserConfigPath(): Promise<string | undefined> {
+  for (const candidate of [userConfigPath, legacyUserConfigPath]) {
+    try {
+      await fs.access(candidate);
+      return candidate;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+  }
+  return undefined;
 }
