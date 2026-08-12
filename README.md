@@ -2,7 +2,7 @@
 
 `codex-dp` 是 Codex 与独立 Pi Agent 之间的本地协作桥接工具。Codex 负责需求分析、方案裁决和最终验收；Pi Agent 负责独立反方审查和经授权的代码实现。
 
-当前版本面向 Windows 11，使用 Node.js 启动本地 CLI 和 MCP 服务，不访问数据库，不自动提交、暂存或推送代码。
+当前版本提供 Windows 11、Linux 和 macOS 适配，使用 Node.js 启动本地 CLI 和 MCP 服务，不访问数据库，不自动提交、暂存或推送代码。
 
 ## 核心能力
 
@@ -16,13 +16,13 @@
 
 ## 适用环境
 
-- Windows 11
+- Windows 11、Linux 或 macOS
 - Node.js `>=22.19.0`
+- Git
+- 已安装并可以在 PATH 中找到 Codex CLI
 - 已安装并可以在 PATH 中找到 Pi Agent 命令
 - 已通过 Pi Agent 原生登录流程完成 OpenCode Go 认证
 - 项目目录位于本地 Git 工作区
-
-项目当前不提供 macOS 或 Linux 安装适配。
 
 ## 架构流程
 
@@ -61,34 +61,53 @@ Pi Agent / OpenCode Go / DeepSeek
 
 在项目目录中执行：
 
-```powershell
+```shell
 npm install
 npm run build
 ```
 
-构建完成后，命令入口位于构建输出目录。仓库同时提供 Windows 命令脚本，适合在项目目录中调用。
+`npm install` 会执行构建准备脚本，显式执行 `npm run build` 可以再次确认构建产物完整。仓库提供以下源码启动入口：
 
-安装 Pi Agent 后，先确认命令可以被 Windows PATH 找到：
+- Windows PowerShell：`.\codex-dp.ps1 <命令>`
+- Windows 命令提示符：`codex-dp.cmd <命令>`
+- Linux 和 macOS：`./codex-dp <命令>`
+- 通用入口：`node dist/src/cli.js <命令>`
 
-```powershell
+通过不保留 Unix 执行权限的压缩包获取源码时，需要先执行：
+
+```shell
+chmod +x ./codex-dp
+```
+
+安装 Pi Agent 和 Codex CLI 后，先确认两个命令都可以从 PATH 中找到：
+
+```shell
 pi --version
+codex --version
 ```
 
 然后通过 Pi Agent 自身的登录流程完成 OpenCode Go 认证。`codex-dp` 不直接接收或保存 OpenCode Go API Key。
 
 ## 首次配置和健康检查
 
-推荐按以下顺序执行：
+在项目目录中先预览和应用安装配置：
 
-```powershell
+```shell
+node dist/src/cli.js setup preview
+node dist/src/cli.js setup apply
+```
+
+Windows 会把源码目录加入用户级 PATH。Linux 和 macOS 会在 `~/.local/bin` 安装用户级启动入口，但不会修改 shell 配置文件；如果预览结果包含 `pathInstruction`，需要把其中的 PATH 配置加入所用 shell 的配置文件，然后重新打开终端。
+
+安装完成后依次执行：
+
+```shell
 codex-dp status
 codex-dp doctor
 codex-dp models
 codex-dp config set-model <模型标识>
 codex-dp config set-thinking max
 codex-dp live-test
-codex-dp setup preview
-codex-dp setup apply
 ```
 
 各命令的用途：
@@ -99,9 +118,9 @@ codex-dp setup apply
 - `config set-model <模型标识>`：设置默认模型。
 - `config set-thinking <思考强度>`：设置默认思考强度，可选 `off`、`minimal`、`low`、`medium`、`high`、`xhigh`、`max`，默认使用 `max`。
 - `live-test`：使用真实模型完成一次固定口令联调，会消耗模型额度。
-- `setup preview`：只展示将要加入的 PATH 项、CLI 入口和 MCP 注册信息，不修改系统。
-- `setup apply`：将项目路径加入用户级 PATH，并注册 `codex-dp` MCP 服务。
-- `setup remove`：移除本项目加入的用户级 PATH 项，并移除 `codex-dp` MCP 服务。
+- `setup preview`：只展示平台、PATH 项、CLI 入口和 MCP 注册信息，不修改系统。
+- `setup apply`：Windows 维护用户级 PATH；Linux 和 macOS 安装用户级启动入口；三个平台都会注册 `codex-dp` MCP 服务。
+- `setup remove`：移除本项目管理的 PATH 项或启动入口，并移除 `codex-dp` MCP 服务。
 
 `setup apply` 前应确认预览结果中没有不希望修改的路径或同名 MCP 服务。
 
@@ -109,7 +128,7 @@ codex-dp setup apply
 
 ### 状态和模型
 
-```powershell
+```shell
 codex-dp status
 codex-dp doctor
 codex-dp models
@@ -118,29 +137,46 @@ codex-dp live-test
 
 ### 配置
 
-```powershell
+```shell
 codex-dp config show
 codex-dp config set-model <模型标识>
 codex-dp config set-thinking <思考强度>
 ```
 
-默认配置位于 `Config/default.json`。用户配置位于 `Config/config.json`，用户配置会覆盖默认配置中的同名字段。用户配置写入前会在 `Config/backups/` 中保留备份。
+默认配置模板位于源码目录的 `Config/default.json`。用户配置会覆盖默认配置中的同名字段，具体位置如下：
+
+| 平台 | 用户配置 | 日志和任务状态 |
+| --- | --- | --- |
+| Windows | `%APPDATA%\codex-dp\config.json` | `%LOCALAPPDATA%\codex-dp\` |
+| macOS | `~/Library/Application Support/codex-dp/config.json` | `~/Library/Application Support/codex-dp/` |
+| Linux | `${XDG_CONFIG_HOME:-~/.config}/codex-dp/config.json` | `${XDG_STATE_HOME:-~/.local/state}/codex-dp/` |
+
+旧版源码目录中的 `Config/config.json` 仍可以读取；下一次更新配置时会写入新的用户配置目录。配置写入前会在用户配置目录的 `backups/` 中保留备份。
+
+可使用以下环境变量覆盖默认位置或命令：
+
+| 环境变量 | 用途 |
+| --- | --- |
+| `CODEX_DP_HOME` | 使用一个绝对路径统一存放 `Config/`、`Log/` 和 `Temp/` |
+| `CODEX_DP_BIN_DIR` | 指定 Linux 或 macOS 用户启动入口目录，必须是绝对路径 |
+| `CODEX_DP_CODEX_COMMAND` | 指定 Codex CLI 命令名或绝对路径 |
+| `CODEX_HOME` | 指定 Codex 配置目录 |
 
 `defaultThinkingLevel` 控制 Pi Agent 的默认思考强度，初始值为 `max`。启动任务后，`codex-dp` 会读取当前模型实际支持的思考等级；如果配置等级不受支持，任务会停止并返回可用等级，不会静默降级。MCP 审查工具也可以通过 `requestedThinkingLevel` 为单次任务覆盖默认值，后续分歧审查、实施和修订会沿用该任务的思考强度。
 
 ### 安装和卸载
 
-```powershell
+```shell
 codex-dp setup preview
 codex-dp setup apply
 codex-dp setup remove
 ```
 
-`setup apply` 会备份已有的 Codex 配置，并在失败时尝试恢复 PATH 和 Codex 配置。它不会修改 Codex 原生多 Agent 编排配置，但会注册或移除名为 `codex-dp` 的 MCP 服务。
+`setup apply` 会备份已有的 Codex 配置，并在失败时尝试恢复 PATH、Unix 启动入口和 Codex 配置。它不会修改 Codex 原生多 Agent 编排配置，但会注册或移除名为 `codex-dp` 的 MCP 服务。
 
 ### 任务诊断
 
-```powershell
+```shell
 codex-dp temp list
 codex-dp temp inspect <任务标识>
 codex-dp temp clean <任务标识>
@@ -176,7 +212,7 @@ Pi Agent 在 Git 隔离工作区中直接修改文件。`codex-dp` 会记录基�
 - 实施和修订都有工具调用预算和超时限制。
 - 默认向 Pi RPC 传递 `max` 思考强度，也允许通过配置或单次任务参数自定义；不支持的等级会明确报错。
 - 总超时只累计模型和工具实际执行时间，不计算用户阅读、裁决和授权等待时间。
-- 任务失败时会终止 Pi RPC 进程及其 Windows 子进程树。
+- 任务失败时会终止 Pi RPC 进程及其 Windows、Linux 或 macOS 子进程树。
 - 日志和失败摘要会省略提示词、补丁、响应、密钥、令牌等字段，并对部分路径进行脱敏。
 - 不自动提交、不自动暂存、不自动推送。
 - MCP 中的授权字段依赖 Codex 根据用户对话进行转述，服务端无法独立证明授权来源。
@@ -186,15 +222,13 @@ Pi Agent 在 Git 隔离工作区中直接修改文件。`codex-dp` 会记录基�
 ## 目录说明
 
 ```text
-Config/       默认配置、用户配置和配置备份
-Log/          运行事件和错误日志
-Temp/         任务临时目录、策略文件、失败摘要和隔离结果
-src/          TypeScript 源代码
-Test/         自动化测试
-dist/         构建输出，不提交到 Git
+Config/default.json   默认配置模板
+src/                  TypeScript 源代码
+Test/                 自动化测试
+dist/                 构建输出，不提交到 Git
 ```
 
-`Config/config.json`、`Config/backups/`、`Temp/` 和 `Log/` 默认不提交到 Git。包含密钥、令牌或个人配置的文件不应加入版本控制。
+用户配置、配置备份、运行日志和任务临时目录位于前述平台用户目录，不再依赖源码所在的本地绝对路径。包含密钥、令牌或个人配置的文件不应加入版本控制。
 
 ## 故障排查
 
@@ -202,19 +236,18 @@ dist/         构建输出，不提交到 Git
 
 执行：
 
-```powershell
+```shell
 pi --version
-where.exe pi
 codex-dp status
 ```
 
-如果 `where.exe pi` 没有结果，请先将 Pi Agent 安装目录加入 PATH，再重新打开 VS Code 终端。
+Windows 可以使用 `where.exe pi`，Linux 和 macOS 可以使用 `which pi` 检查命令位置。如果没有结果，请先将 Pi Agent 安装目录加入 PATH，再重新打开终端。
 
 ### Pi 版本不兼容
 
 执行：
 
-```powershell
+```shell
 codex-dp status
 codex-dp doctor
 ```
@@ -225,7 +258,7 @@ codex-dp doctor
 
 执行：
 
-```powershell
+```shell
 codex-dp doctor
 codex-dp models
 ```
@@ -246,30 +279,29 @@ codex-dp models
 
 先执行：
 
-```powershell
+```shell
 codex-dp setup preview
-where.exe codex-dp
 codex-dp setup apply
 ```
 
-如果提示存在同名命令或同名 MCP 服务，请先确认该命令或服务是否属于本项目。不要直接覆盖未知来源的配置。
+Windows 可以使用 `where.exe codex-dp`，Linux 和 macOS 可以使用 `which codex-dp` 检查启动入口。如果提示存在同名命令或同名 MCP 服务，请先确认该命令或服务是否属于本项目。不要直接覆盖未知来源的配置。
 
 ### 任务失败后如何查看结果
 
 执行：
 
-```powershell
+```shell
 codex-dp temp list
 codex-dp temp inspect <任务标识>
 ```
 
-日志位于 `Log/`，失败摘要位于对应任务的 `Temp/` 子目录。失败任务默认保留诊断信息，确认不再需要后再执行 `temp clean`。
+日志和失败摘要位于平台用户状态目录。失败任务默认保留诊断信息，确认不再需要后再执行 `temp clean`。
 
 ### 配置文件损坏
 
-如果 `config.json` 格式损坏，先保留现有文件，再从 `Config/backups/` 选择最近一次有效备份恢复。恢复后重新执行：
+如果 `config.json` 格式损坏，先保留现有文件，再从用户配置目录的 `backups/` 选择最近一次有效备份恢复。恢复后重新执行：
 
-```powershell
+```shell
 codex-dp config show
 codex-dp doctor
 ```
@@ -278,26 +310,25 @@ codex-dp doctor
 
 类型检查：
 
-```powershell
+```shell
 npm run check
 ```
 
 构建：
 
-```powershell
+```shell
 npm run build
 ```
 
 测试脚本依赖构建输出。运行完整测试前应先执行构建：
 
-```powershell
+```shell
 npm test
 ```
 
 ## 已知限制
 
-- 当前只支持 Windows 11 用户级 PATH 配置。
-- 当前不提供 macOS 和 Linux 安装适配。
+- Linux 和 macOS 会安装用户级启动入口，但不会自动改写 bash、zsh 或 Fish 配置文件。
 - Pi Agent 必须独立安装，并通过自身登录流程完成认证。
 - `codex-dp` 不直接录入或保存 OpenCode Go API Key。
 - Git 忽略文件默认不会复制到隔离工作区。
@@ -305,8 +336,8 @@ npm test
 - 授权字段依赖 Codex 转述，服务端无法独立验证用户授权来源。
 - 不自动提交、暂存或推送代码。
 - 项目级自定义 Prompt 尚未实现。
-- 正式安装包、跨平台适配、日志轮转和会话恢复尚未实现。
+- 正式开源许可证、npm 发布流程、日志轮转和会话恢复尚未实现。
 
 ## 当前后续计划
 
-已实现的功能和仍在计划中的功能统一记录在 `TODO.md`。当前未实现的主要功能是项目级自定义 Prompt。
+已实现的功能和仍在计划中的功能统一记录在 `TODO.md`。尚未确定开源许可证，正式发布前必须先完成许可证选择和仓库元数据配置。
