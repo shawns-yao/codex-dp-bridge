@@ -5,10 +5,20 @@
   "type": "module",
   "description": "Codex to Pi Agent collaboration bridge",
   "bin": { "codex-dp": "dist/src/cli.js" },
+  "files": [
+    "Config/default.json",
+    "dist/src",
+    "codex-dp",
+    "codex-dp.cmd",
+    "codex-dp.ps1",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test dist/Test/**/*.test.js"
+    "test": "node --test dist/Test/**/*.test.js",
+    "prepare": "npm run build",
+    "prepack": "npm run check && npm run build"
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "0.84.1",

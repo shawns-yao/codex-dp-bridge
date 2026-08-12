@@ -1,3 +1,4 @@
 #!/usr/bin/env pwsh
-& node "$PSScriptRoot\dist\src\cli.js" @args
+$entry = Join-Path $PSScriptRoot "dist/src/cli.js"
+& node $entry @args
 exit $LASTEXITCODE
