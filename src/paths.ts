@@ -23,52 +23,53 @@ export interface AppDirectoryOptions {
 export function resolveAppDirectories(options: AppDirectoryOptions = {}): AppDirectories {
   const platform = options.platform ?? process.platform;
   const environment = options.environment ?? process.env;
-  const homeDirectory = path.resolve(options.homeDirectory ?? os.homedir());
+  const pathApi = platform === "win32" ? path.win32 : path.posix;
+  const homeDirectory = pathApi.resolve(options.homeDirectory ?? os.homedir());
   const override = environment.CODEX_DP_HOME?.trim();
   if (override) {
-    if (!path.isAbsolute(override)) throw new Error("CODEX_DP_HOME 必须是绝对路径");
-    const root = path.resolve(override);
+    if (!pathApi.isAbsolute(override)) throw new Error("CODEX_DP_HOME 必须是绝对路径");
+    const root = pathApi.resolve(override);
     return {
-      configDirectory: path.join(root, "Config"),
+      configDirectory: pathApi.join(root, "Config"),
       stateDirectory: root,
-      tempDirectory: path.join(root, "Temp"),
-      logDirectory: path.join(root, "Log")
+      tempDirectory: pathApi.join(root, "Temp"),
+      logDirectory: pathApi.join(root, "Log")
     };
   }
 
   if (platform === "win32") {
-    const configRoot = absoluteEnvironmentDirectory(environment.APPDATA) ?? path.join(homeDirectory, "AppData", "Roaming");
-    const stateRoot = path.join(absoluteEnvironmentDirectory(environment.LOCALAPPDATA) ?? path.join(homeDirectory, "AppData", "Local"), "codex-dp");
+    const configRoot = absoluteEnvironmentDirectory(environment.APPDATA, pathApi) ?? pathApi.join(homeDirectory, "AppData", "Roaming");
+    const stateRoot = pathApi.join(absoluteEnvironmentDirectory(environment.LOCALAPPDATA, pathApi) ?? pathApi.join(homeDirectory, "AppData", "Local"), "codex-dp");
     return {
-      configDirectory: path.join(configRoot, "codex-dp"),
+      configDirectory: pathApi.join(configRoot, "codex-dp"),
       stateDirectory: stateRoot,
-      tempDirectory: path.join(stateRoot, "Temp"),
-      logDirectory: path.join(stateRoot, "Log")
+      tempDirectory: pathApi.join(stateRoot, "Temp"),
+      logDirectory: pathApi.join(stateRoot, "Log")
     };
   }
 
   if (platform === "darwin") {
-    const stateRoot = path.join(homeDirectory, "Library", "Application Support", "codex-dp");
+    const stateRoot = pathApi.join(homeDirectory, "Library", "Application Support", "codex-dp");
     return {
       configDirectory: stateRoot,
       stateDirectory: stateRoot,
-      tempDirectory: path.join(stateRoot, "Temp"),
-      logDirectory: path.join(stateRoot, "Log")
+      tempDirectory: pathApi.join(stateRoot, "Temp"),
+      logDirectory: pathApi.join(stateRoot, "Log")
     };
   }
 
-  const configRoot = absoluteEnvironmentDirectory(environment.XDG_CONFIG_HOME) ?? path.join(homeDirectory, ".config");
-  const stateRoot = path.join(absoluteEnvironmentDirectory(environment.XDG_STATE_HOME) ?? path.join(homeDirectory, ".local", "state"), "codex-dp");
+  const configRoot = absoluteEnvironmentDirectory(environment.XDG_CONFIG_HOME, pathApi) ?? pathApi.join(homeDirectory, ".config");
+  const stateRoot = pathApi.join(absoluteEnvironmentDirectory(environment.XDG_STATE_HOME, pathApi) ?? pathApi.join(homeDirectory, ".local", "state"), "codex-dp");
   return {
-    configDirectory: path.join(configRoot, "codex-dp"),
+    configDirectory: pathApi.join(configRoot, "codex-dp"),
     stateDirectory: stateRoot,
-    tempDirectory: path.join(stateRoot, "Temp"),
-    logDirectory: path.join(stateRoot, "Log")
+    tempDirectory: pathApi.join(stateRoot, "Temp"),
+    logDirectory: pathApi.join(stateRoot, "Log")
   };
 }
 
-function absoluteEnvironmentDirectory(value: string | undefined): string | undefined {
-  return value && path.isAbsolute(value) ? path.resolve(value) : undefined;
+function absoluteEnvironmentDirectory(value: string | undefined, pathApi: path.PlatformPath): string | undefined {
+  return value && pathApi.isAbsolute(value) ? pathApi.resolve(value) : undefined;
 }
 
 const appDirectories = resolveAppDirectories();

@@ -9,8 +9,8 @@ test("Windows 使用用户级配置和本地状态目录", () => {
     homeDirectory: "C:/Users/example",
     environment: { APPDATA: "C:/Users/example/AppData/Roaming", LOCALAPPDATA: "C:/Users/example/AppData/Local" }
   });
-  assert.equal(directories.configDirectory, path.resolve("C:/Users/example/AppData/Roaming/codex-dp"));
-  assert.equal(directories.tempDirectory, path.resolve("C:/Users/example/AppData/Local/codex-dp/Temp"));
+  assert.equal(directories.configDirectory, path.win32.resolve("C:/Users/example/AppData/Roaming/codex-dp"));
+  assert.equal(directories.tempDirectory, path.win32.resolve("C:/Users/example/AppData/Local/codex-dp/Temp"));
 });
 
 test("macOS 使用 Application Support 目录", () => {
