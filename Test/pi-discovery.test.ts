@@ -40,7 +40,7 @@ function config(overrides: Partial<AppConfig> = {}): AppConfig {
   return {
     piCommand: "",
     compatiblePiRange: ">=0.84.1 <0.85.0",
-    provider: "opencode-go",
+    provider: "",
     defaultModel: "",
     defaultThinkingLevel: "max",
     defaultMode: "patch",

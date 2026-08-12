@@ -13,6 +13,7 @@ import { redact } from "./security.js";
 import { atomicWriteFile } from "./atomic-write.js";
 import { snapshotProcessTree, terminateProcessTree } from "./process.js";
 import { applyThinkingLevel } from "./thinking.js";
+import { resolveModelSelection } from "./model-selection.js";
 import type { AppConfig, ImplementationInput, ReviewInput, TaskRecord, ThinkingLevel } from "./types.js";
 import { isPathWithin, pathsEqual } from "./path-utils.js";
 
@@ -74,7 +75,7 @@ export class TaskManager {
       await this.promptAndWait(task, "上一轮没有返回最终文本。不要继续调用工具，请立即按照上一条消息要求的格式返回完整最终结果。", Math.min(timeoutMs, 120000), config);
       result = await task.client.getLastAssistantText();
     }
-    if (!result?.trim()) throw new Error("DeepSeek 重试后仍未返回有效内容");
+    if (!result?.trim()) throw new Error("Pi 模型重试后仍未返回有效内容");
     task.lastResult = result;
     return result;
   }
@@ -90,7 +91,7 @@ export class TaskManager {
       Math.min(timeoutMs, 120000),
       config
     );
-    if (!extract(retried, marker)) throw new Error(`DeepSeek 重试后仍缺少 ${marker} 标记`);
+    if (!extract(retried, marker)) throw new Error(`Pi 模型重试后仍缺少 ${marker} 标记`);
     return retried;
   }
 
@@ -98,9 +99,8 @@ export class TaskManager {
     if (!input.collaborationAuthorized) throw new Error("缺少当前任务的 codex-dp 协作授权");
     const config = await loadConfig();
     const root = assertCurrentWorkspace(input.projectRoot);
-    const model = input.requestedModel || config.defaultModel;
+    const requestedModel = input.requestedModel || config.defaultModel;
     const thinkingLevel = input.requestedThinkingLevel || config.defaultThinkingLevel;
-    if (!model) throw new Error("尚未配置默认 DeepSeek 模型，且当前任务未指定模型");
     const pi = await discoverPi(config);
     await fs.access(guardExtensionPath);
     const id = randomUUID();
@@ -119,13 +119,19 @@ export class TaskManager {
     const client = new RpcClient({
       cliPath: pi.cliPath,
       cwd: root,
-      provider: config.provider,
-      model,
       args: ["--no-session", "--tools", "read,grep,find,ls,edit,write", "--extension", guardExtensionPath],
       env: { CODEX_DP_POLICY_PATH: policyPath }
     });
+    let model: string;
+    let provider: string;
     try {
       await client.start();
+      const selection = resolveModelSelection(await client.getAvailableModels(), requestedModel, config.provider);
+      if (selection) await client.setModel(selection.provider, selection.model);
+      const activeModel = selection ?? await activeModelSelection(client);
+      if (!activeModel) throw new Error("Pi 没有可用模型，请先配置任意供应商和模型");
+      model = activeModel.model;
+      provider = activeModel.provider;
       await applyThinkingLevel(client, thinkingLevel);
     } catch (error) {
       await stopRpcClient(client, getRpcPid(client));
@@ -138,6 +144,7 @@ export class TaskManager {
       phase: "review",
       createdAt: Date.now(),
       model,
+      provider,
       thinkingLevel,
       revisionRounds: 0,
       allowedPaths: [],
@@ -149,7 +156,7 @@ export class TaskManager {
       piPid: getRpcPid(client)
     };
     this.tasks.set(id, task);
-    await logEvent("task_started", { taskId: id, phase: task.phase, model, thinkingLevel, provider: config.provider });
+    await logEvent("task_started", { taskId: id, phase: task.phase, model, thinkingLevel, provider });
     try {
       const initial = await this.runAgent(task, reviewPrompt(input.requirements, input.codexProposal), config.analysisTimeoutMs, config);
       const result = await this.ensureMarker(task, initial, "CODEX_DP_REVIEW", config.analysisTimeoutMs, config);
@@ -191,7 +198,7 @@ export class TaskManager {
         const initial = await this.runAgent(task, patchPrompt(input.frozenPlan, task.allowedPaths), config.implementationTimeoutMs, config);
         const result = await this.ensureMarker(task, initial, "CODEX_DP_PATCH", config.implementationTimeoutMs, config);
         const patch = extract(result, "CODEX_DP_PATCH");
-        if (!patch) throw new Error("DeepSeek 未返回可识别的补丁标记");
+        if (!patch) throw new Error("Pi 模型未返回可识别的补丁标记");
         assertBinaryAuthorization(patch, task.binaryChangesAuthorized);
         validatePatchPaths(patch, task.allowedPaths);
         await logEvent("implementation_completed", { taskId: task.id, mode: "patch", patchBytes: Buffer.byteLength(patch) });
@@ -296,6 +303,11 @@ function extract(text: string, marker: string): string | undefined {
 
 function getRpcPid(client: RpcClient): number | undefined {
   return (client as unknown as { process?: { pid?: number } }).process?.pid;
+}
+
+async function activeModelSelection(client: RpcClient): Promise<{ provider: string; model: string } | undefined> {
+  const model = (await client.getState()).model;
+  return model ? { provider: model.provider, model: model.id } : undefined;
 }
 
 async function stopRpcClient(client: RpcClient, pid?: number, abort = false): Promise<void> {

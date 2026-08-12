@@ -41,7 +41,7 @@ function text(value: unknown) {
 }
 
 server.registerTool("codex_dp_status", {
-  description: "检查 codex-dp、Pi 版本和当前内存任务，不启动 DeepSeek",
+  description: "检查 codex-dp、Pi 版本和当前内存任务，不启动模型请求",
   inputSchema: {}
 }, async () => {
   const config = await loadConfig();
@@ -50,7 +50,7 @@ server.registerTool("codex_dp_status", {
 });
 
 server.registerTool("codex_dp_start_review", {
-  description: "在用户明确协作授权后，启动 DeepSeek 对 Codex 初步方案进行一轮独立反方审查",
+  description: "在用户明确协作授权后，使用选定的 Pi 模型对 Codex 初步方案进行一轮独立反方审查",
   inputSchema: {
     projectRoot: z.string(),
     requirements: z.string().min(1),

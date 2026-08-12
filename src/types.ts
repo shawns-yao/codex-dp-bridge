@@ -44,6 +44,7 @@ export interface TaskRecord {
   phase: TaskPhase;
   createdAt: number;
   model: string;
+  provider?: string;
   thinkingLevel: ThinkingLevel;
   revisionRounds: number;
   allowedPaths: string[];

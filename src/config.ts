@@ -8,7 +8,7 @@ import { THINKING_LEVELS, type AppConfig } from "./types.js";
 const schema = z.object({
   piCommand: z.string(),
   compatiblePiRange: z.string().min(1),
-  provider: z.string().min(1),
+  provider: z.string(),
   defaultModel: z.string(),
   defaultThinkingLevel: z.enum(THINKING_LEVELS),
   defaultMode: z.enum(["patch", "direct"]),

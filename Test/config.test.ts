@@ -7,7 +7,7 @@ test("默认配置符合冻结设计", async () => {
   const config = await loadConfig();
   assert.equal(config.defaultMode, "patch");
   assert.equal(config.maxRevisionRounds, 2);
-  assert.equal(config.provider, "opencode-go");
+  assert.equal(typeof config.provider, "string");
   assert.equal(typeof config.piCommand, "string");
   assert.equal(config.defaultThinkingLevel, "max");
   assert.equal(config.detailedLogging, false);
